@@ -59,9 +59,24 @@ from models import model
 # ════════════════════════════════════════════════════════════════════════
 
 async def build_tools():
-    """TODO 1: build a MultiServerMCPClient, fetch its tools, filter them,
+    """build a MultiServerMCPClient, fetch its tools, filter them,
     and return the filtered list."""
-    raise NotImplementedError("TODO 1: see the comment block above")
+    client = MultiServerMCPClient({
+          "DeepWiki": {
+             "transport": "http", 
+             "url": "https://mcp.deepwiki.com/mcp"
+             }
+      })
+    tools = await client.get_tools()
+
+    for tool in tools:
+        print(tool.name)
+
+    ALLOWED = {"GitHub Repository Access"}
+    return [t for t in tools if t.name in ALLOWED]
+
+    # return tools
+    # raise NotImplementedError("TODO 1: see the comment block above")
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -69,7 +84,7 @@ async def build_tools():
 # not Lab 1's "what is MCP..." question.
 # ════════════════════════════════════════════════════════════════════════
 
-QUESTION = "TODO 2: replace with a question that puts your chosen tool(s) to work."
+QUESTION = "what kind of repo can you read?"
 
 
 async def main():
