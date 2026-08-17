@@ -129,10 +129,8 @@ trophies.""" + TOOL_SEQUENCE,
     # TODO 1: name and write your own persona here. Keep the same job
     # (score three traits, match a product, hand off a verdict)
     # Give it a name and a voice all your own.
-    "your_persona": """TODO 1: replace this with your own judge persona. Give
-yourself a name and a distinct voice (see the three judges above for the
-shape), then call yourself that name wherever judge_name is expected
-below.""" + TOOL_SEQUENCE,
+    "your_persona": """you are a strict university professor, calm, caring, and observant.but also strict 
+    to the point, lead with inspiration""" + TOOL_SEQUENCE,
 }
 
 
@@ -175,8 +173,13 @@ def score_and_match(answers: list[tuple[int, int, int]]) -> dict:
     #    label if scores[axis_index] >= 50, otherwise the left label.
     # 3. Set product to PRODUCT_MATCHES[direction.lower()], e.g.
     #    PRODUCT_MATCHES["chaotic"] -> "Fleet".
-    # 4. Return {"trait_scores": scores, "product": product}.
-    raise NotImplementedError("TODO 2: see the comments above")
+    scores_axes = [abs(score - 50) for score in scores]
+    axis_index = scores_axes.index(max(scores_axes))
+    direction = TRAIT_AXES[axis_index][1] if scores[axis_index] >= 50 else TRAIT_AXES[axis_index][0]
+    product= PRODUCT_MATCHES[direction.lower()]
+
+    return {"trait_scores": scores, "product": product}
+    # raise NotImplementedError("TODO 2: see the comments above")
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -210,14 +213,49 @@ def score_and_match(answers: list[tuple[int, int, int]]) -> dict:
 # PLACEHOLDER_FACT exists purely so the script still finishes
 # if the docs server is briefly unreachable, not because of any auth step.
 PLACEHOLDER_FACT = "no real data connected yet: swap this for a real MCP-sourced fact"
+import asyncio
+
+from langchain_mcp_adapters.client import MultiServerMCPClient
+
+
+async def build_tools():
+    client = MultiServerMCPClient({
+        "docs-langchain": {
+            "transport": "http",
+            "url": "https://docs.langchain.com/mcp",
+        }
+    })
+    tools = await client.get_tools()
+
+    print(f"\ndocs-langchain: {len(tools)} tool(s)")
+    for t in tools:
+        print(f"  {t.name}")
+        print(f"  {t.description[:90]}")
+
+    # filter to allowed tools only
+    ALLOWED = {"search_docs_by_lang_chain"}
+    tools = [t for t in tools if t.name in ALLOWED]
+
+    print(f"\nfiltered to: {len(tools)} tool(s)")
+    for t in tools:
+        print(f"  {t.name}")
+
+    return tools
+
 
 
 @tool
 def fetch_product_fact(product: str) -> str:
     """Look up one grounded, factual sentence about the LangChain product
     you were matched with. Call this right after score_and_match, passing
-    in the product name it returned."""
-    raise NotImplementedError("TODO 3: see the comment block above")
+    in the product name it returned. under 25 words, stripped of extra whitespace. If the docs server is unreachable, return PLACEHOLDER_FACT instead."""
+    try:
+        return asyncio.run(build_tools())
+    except Exception as e:
+        print(f"Error fetching product fact: {e}")
+        return PLACEHOLDER_FACT
+  # NotImplementedError("TODO 3: see the comment block above")
+   
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -251,6 +289,8 @@ if __name__ == "__main__":
             user_prompt=user_prompt,
             tools=[score_and_match, fetch_product_fact, render_card, post_card],
             model=model,  # TODO 6 (Lesson 1.3, Models, optional): from models import strong_model and try it here
-            interrupt_on=None,  # TODO 5 (Lesson 1.8, Human-in-the-Loop: Decision Types): gate post_card, e.g. {"post_card": True}
+            interrupt_on={
+        "post_card": {"allowed_decisions": ["approve", "edit", "reject"]}
+    },  # TODO 5 (Lesson 1.8, Human-in-the-Loop: Decision Types): gate post_card, e.g. {"post_card": True}
         )
     print(f"\nCards saved to {OUTPUT_DIR}/")
